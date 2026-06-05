@@ -164,14 +164,55 @@ interface CategoryApiResponse {
 
 export async function fetchCategories(
   token: string,
-  tree: boolean = true
+  params?: {
+    tree?: boolean;
+    parentId?: string;
+    level?: number;
+  }
 ): Promise<Category[]> {
   const res = await apiGet<CategoryApiResponse>(
     "/api/v1/category/get-All",
     token,
-    tree ? { tree: true } : undefined
+    {
+      tree: params?.tree ?? true,
+      parentId: params?.parentId,
+      level: params?.level,
+    }
   );
-  return res.data?.results ?? [];
+  const results = res.data?.results ?? [];
+
+  // If parentId is specified, find that category's children
+  if (params?.parentId) {
+    const targetId = params.parentId;
+    function findChildren(cats: Category[]): Category[] {
+      for (const cat of cats) {
+        if (cat.id === targetId) return cat.children ?? [];
+        if (cat.children) {
+          const found = findChildren(cat.children);
+          if (found.length > 0) return found;
+        }
+      }
+      return [];
+    }
+    return findChildren(results);
+  }
+
+  // If level is specified, extract only that level
+  if (params?.level) {
+    const targetLevel = params.level;
+    function extractLevel(cats: Category[], current = 1): Category[] {
+      if (current === targetLevel) return cats;
+      for (const cat of cats) {
+        if (cat.children) {
+          return extractLevel(cat.children, current + 1);
+        }
+      }
+      return [];
+    }
+    return extractLevel(results);
+  }
+
+  return results;
 }
 
 // =========================================================

@@ -30,8 +30,12 @@ function formatProduct(p: Product): string {
 export function registerCategoryTools(server: McpServer) {
   server.tool(
     "get_categories",
-    "Get the full category tree. Categories have 3 levels: Level 1 = Karat (e.g. 18K, 20K), Level 2 = Collection, Level 3 = Style. IMPORTANT: Only level 3 category IDs can be used to fetch products. Always use level 3 IDs with get_category_products.",
+    "Browse categories step by step. Call with no params to see Karat options (Level 1). Pass a parent_id to see its children (Level 2=Collection or Level 3=Style). Only Level 3 IDs work with get_category_products. Ask the user what they are looking for (karat, collection, style) before drilling down.",
     {
+      parent_id: z
+        .string()
+        .optional()
+        .describe("Parent category ID to get children. Omit to get Level 1 (Karat) options."),
       level: z
         .number()
         .int()
@@ -40,11 +44,14 @@ export function registerCategoryTools(server: McpServer) {
         .optional()
         .describe("Filter by level: 1=Karat, 2=Collection, 3=Style"),
     },
-    async ({ level }) => {
+    async ({ parent_id, level }) => {
       try {
         const token = getApiToken();
-        const useTree = level === undefined;
-        const categories = await fetchCategories(token, useTree);
+        const categories = await fetchCategories(token, {
+          tree: false,
+          parentId: parent_id,
+          level: level,
+        });
 
         if (categories.length === 0) {
           return {
@@ -55,7 +62,8 @@ export function registerCategoryTools(server: McpServer) {
         }
 
         const formatted = categories.map((c) => formatCategory(c)).join("\n\n");
-        const summary = `Category Tree (${categories.length} top-level):\n\n${formatted}\n\nNOTE: Only Level 3 IDs work with get_category_products.`;
+        const levelLabel = level === 1 ? "Karat" : level === 2 ? "Collection" : level === 3 ? "Style" : "categories";
+        const summary = `${levelLabel} (${categories.length}):\n\n${formatted}`;
 
         return {
           content: [{ type: "text" as const, text: summary }],
@@ -75,7 +83,7 @@ export function registerCategoryTools(server: McpServer) {
 
   server.tool(
     "get_category_products",
-    "Get products in a category. IMPORTANT: category_id MUST be a Level 3 (Style) ID. Use get_categories with level=3 to find valid IDs. Level 1 and Level 2 IDs will return 0 products.",
+    "Get products in a category. IMPORTANT: category_id MUST be a Level 3 (Style) ID. Use get_categories with parent_id to drill down to Level 3 first. Level 1 and Level 2 IDs will return 0 products.",
     {
       category_id: z.string().describe("A Level 3 (Style) category ID"),
       page: z
@@ -107,7 +115,7 @@ export function registerCategoryTools(server: McpServer) {
             content: [
               {
                 type: "text" as const,
-                text: `No products found for category '${category_id}'. Make sure you are using a Level 3 (Style) category ID. Use get_categories with level=3 to find valid IDs.`,
+                text: `No products found for category '${category_id}'. Make sure you are using a Level 3 (Style) category ID. Use get_categories with parent_id to drill down to Level 3 first.`,
               },
             ],
           };

@@ -117,17 +117,18 @@ const TOOLS = [
   },
   {
     name: "get_categories",
-    description: "Get the category tree. Level 1=Karat, Level 2=Collection, Level 3=Style. Only Level 3 IDs work with get_category_products.",
+    description: "Browse categories step by step. Call with no params to see Karat options (Level 1). Pass parent_id to see its children (Level 2=Collection or Level 3=Style). Only Level 3 IDs work with get_category_products.",
     input_schema: {
       type: "object" as const,
       properties: {
-        level: { type: "number", description: "Filter by level: 1, 2, or 3" },
+        parent_id: { type: "string", description: "Parent category ID to get children. Omit to get Level 1 (Karat) options." },
+        level: { type: "number", description: "Filter by level: 1=Karat, 2=Collection, 3=Style" },
       },
     },
   },
   {
     name: "get_category_products",
-    description: "Get products in a category. category_id MUST be a Level 3 ID.",
+    description: "Get products in a category. category_id MUST be a Level 3 ID. Use get_categories with parent_id to drill down to Level 3 first.",
     input_schema: {
       type: "object" as const,
       properties: {
@@ -251,10 +252,14 @@ async function executeTool(toolName: string, args: Record<string, unknown>, toke
     }
 
     case "get_categories": {
-      const useTree = args.level === undefined;
-      const categories = await fetchCategories(token, useTree);
+      const categories = await fetchCategories(token, {
+        tree: false,
+        parentId: args.parent_id as string | undefined,
+        level: args.level != null ? Number(args.level) : undefined,
+      });
       if (categories.length === 0) return "No categories found.";
-      return `Category Tree (${categories.length} top-level):\n\n${categories.map((c) => formatCategory(c)).join("\n\n")}\n\nNOTE: Only Level 3 IDs work with get_category_products.`;
+      const levelLabel = args.level === 1 ? "Karat" : args.level === 2 ? "Collection" : args.level === 3 ? "Style" : "categories";
+      return `${levelLabel} (${categories.length}):\n\n${categories.map((c) => formatCategory(c)).join("\n\n")}`;
     }
 
     case "get_category_products": {

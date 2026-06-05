@@ -97,26 +97,33 @@ const tools = [
 
   tool({
     name: "get_categories",
-    description: "Get the category tree. Level 1=Karat, Level 2=Collection, Level 3=Style. Only Level 3 IDs work with get_category_products.",
-    parameters: schema({ level: { type: "number", description: "Filter by level: 1=Karat, 2=Collection, 3=Style" } }),
+    description: "Browse categories step by step. Call with no params to see Karat options (Level 1). Pass parent_id to see its children (Level 2=Collection or Level 3=Style). Only Level 3 IDs work with get_category_products.",
+    parameters: schema({
+      parent_id: { type: "string", description: "Parent category ID to get children. Omit to get Level 1 (Karat) options." },
+      level: { type: "number", description: "Filter by level: 1=Karat, 2=Collection, 3=Style" },
+    }),
     execute: async (args: any) => {
       const token = getApiToken();
-      const level = args.level != null ? Number(args.level) : undefined;
-      const cats = await fetchCategories(token, level === undefined);
-      if (cats.length === 0) return "No categories found.";
+      const categories = await fetchCategories(token, {
+        tree: false,
+        parentId: args.parent_id,
+        level: args.level != null ? Number(args.level) : undefined,
+      });
+      if (categories.length === 0) return "No categories found.";
       function fmt(c: any, indent = 0): string {
         const p = "  ".repeat(indent);
         const lines = [`${p}- ${c.name} (ID: ${c.id}, Level: ${c.level ?? "N/A"})`];
         if (c.children) for (const ch of c.children) lines.push(fmt(ch, indent + 1));
         return lines.join("\n");
       }
-      return `Category Tree (${cats.length} top-level):\n\n${cats.map(fmt).join("\n\n")}\n\nNOTE: Only Level 3 IDs work with get_category_products.`;
+      const levelLabel = args.level === 1 ? "Karat" : args.level === 2 ? "Collection" : args.level === 3 ? "Style" : "categories";
+      return `${levelLabel} (${categories.length}):\n\n${categories.map(fmt).join("\n\n")}`;
     },
   }),
 
   tool({
     name: "get_category_products",
-    description: "Get products in a category. category_id MUST be a Level 3 ID.",
+    description: "Get products in a category. category_id MUST be a Level 3 ID. Use get_categories with parent_id to drill down to Level 3 first.",
     parameters: schema({
       category_id: { type: "string", description: "A Level 3 category ID" },
       limit: { type: "number", description: "Max results, default 20" },
@@ -207,7 +214,17 @@ RULES:
 - Only Level 3 category IDs can be used to fetch products
 - Always ask for confirmation before placing an order
 - If a tool returns an error or empty results, say so clearly — do NOT say "technical difficulty"
-- Keep responses concise and well-formatted`;
+- Keep responses concise and well-formatted
+
+CATEGORY BROWSING (lazy loading — fetch only what you need):
+1. Call get_categories with NO params to see Karat options (Level 1: 18K, 20K, 22K)
+2. Ask the user which karat they prefer, or if they have a style/collection in mind
+3. Call get_categories with parent_id of their chosen karat to see Collections (Level 2)
+4. Ask which collection they like, or drill down further
+5. Call get_categories with parent_id of a collection to see Styles (Level 3)
+6. Use the Level 3 ID with get_category_products to show products
+
+If the user already mentions a specific style (e.g. "show me fancy tikki sets"), you can skip steps and search directly. But when browsing, always ask what they are looking for before making multiple API calls.`;
 
 const agent = new Agent({
   name: "Arham Jewellers Assistant",
