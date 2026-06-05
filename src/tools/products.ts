@@ -32,89 +32,6 @@ function formatProduct(p: Product): string {
 
 export function registerProductTools(server: McpServer) {
   server.tool(
-    "search_products",
-    "Search for jewellery products by name, karat, or category. Returns a list of matching products with key details.",
-    {
-      query: z
-        .string()
-        .optional()
-        .describe("Search term to match product names (e.g. 'ring', 'chain', 'bangle')"),
-      karat: z
-        .string()
-        .optional()
-        .describe("Filter by karat purity: '18', '20', '22', etc."),
-      category_id: z
-        .string()
-        .optional()
-        .describe("Filter by category ID"),
-      limit: z
-        .number()
-        .int()
-        .min(1)
-        .max(50)
-        .optional()
-        .describe("Max results to return (default 20, max 50)"),
-    },
-    async ({ query, karat, category_id, limit }) => {
-      try {
-        const token = getApiToken();
-        let products: Product[] = [];
-
-        if (query || karat) {
-          const searchTerm = query
-            ? karat
-              ? `${query} ${karat}`
-              : query
-            : karat!;
-          const result = await searchProducts(token, {
-            search: searchTerm,
-            limit: limit ?? 20,
-            showAll: true,
-          });
-          products = result.data;
-        } else if (category_id) {
-          const result = await fetchProducts(token, {
-            categoryId: category_id,
-            limit: limit ?? 20,
-            showAll: true,
-          });
-          products = result.data;
-        } else {
-          const result = await fetchProducts(token, {
-            limit: limit ?? 20,
-            showAll: true,
-          });
-          products = result.data;
-        }
-
-        if (products.length === 0) {
-          return {
-            content: [
-              { type: "text" as const, text: "No products found matching your criteria." },
-            ],
-          };
-        }
-
-        const formatted = products.map(formatProduct).join("\n\n---\n\n");
-        const summary = `Found ${products.length} product(s):\n\n${formatted}`;
-
-        return {
-          content: [{ type: "text" as const, text: summary }],
-        };
-      } catch (error) {
-        return {
-          content: [
-            {
-              type: "text" as const,
-              text: `Error searching products: ${error instanceof Error ? error.message : String(error)}`,
-            },
-          ],
-        };
-      }
-    }
-  );
-
-  server.tool(
     "get_product_details",
     "Get detailed information about a specific product by its ID. Use this after search_products to get full details of a product.",
     {
@@ -214,7 +131,7 @@ export function registerProductTools(server: McpServer) {
         });
 
         const match = result.data.find(
-          (p) => p.rawData?.["Barcode"]?.toString() === barcode
+          (p: any) => p.rawData?.["Barcode"]?.toString() === barcode
         );
 
         if (!match) {

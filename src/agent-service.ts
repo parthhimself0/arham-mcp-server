@@ -2,7 +2,6 @@ import * as http from "http";
 import { Agent, Runner, setTracingDisabled, setOpenAIAPI, tool } from "@openai/agents";
 import {
   fetchProducts,
-  searchProducts,
   fetchCategories,
   fetchCurrentGoldRate,
   fetchGoldRateHistory,
@@ -76,32 +75,6 @@ function schema(props: Record<string, any>, required: string[] = []): any {
 
 // ── Tools with raw JSON schemas ──────────────────────────────
 const tools = [
-  tool({
-    name: "search_products",
-    description: "Search for jewellery products by name, karat, or category.",
-    parameters: schema({
-      query: { type: "string", description: "Search term (e.g. 'ring', 'chain', 'bangle')" },
-      karat: { type: "string", description: "Filter by karat: '18', '20', '22'" },
-      category_id: { type: "string", description: "Filter by category ID" },
-      limit: { type: "number", description: "Max results, default 20" },
-    }),
-    execute: async (args: any) => {
-      const token = getApiToken();
-      const limit = Number(args.limit) || 20;
-      let products: Product[] = [];
-      if (args.query || args.karat) {
-        const term = args.query && args.karat ? `${args.query} ${args.karat}` : (args.query || args.karat);
-        products = (await searchProducts(token, { search: term, limit, showAll: true })).data;
-      } else if (args.category_id) {
-        products = (await fetchProducts(token, { categoryId: args.category_id, limit, showAll: true })).data;
-      } else {
-        products = (await fetchProducts(token, { limit, showAll: true })).data;
-      }
-      if (products.length === 0) return "No products found matching your criteria.";
-      return `Found ${products.length} product(s):\n\n${products.map(formatProduct).join("\n\n---\n\n")}`;
-    },
-  }),
-
   tool({
     name: "get_product_details",
     description: "Get detailed information about a specific product by ID.",
