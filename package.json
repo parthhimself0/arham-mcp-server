@@ -14,7 +14,9 @@
     "dev": "tsc && node --env-file=.env build/index.js",
     "dev:http": "tsc && node --env-file=.env build/http-server.js",
     "dev:agent": "tsc && node --env-file=.env build/agent-service.js",
-    "get-token": "tsc && node --env-file=.env build/get-token.js"
+    "get-token": "tsc && node --env-file=.env build/get-token.js",
+    "start:render": "node build/agent-service.js",
+    "start:render": "node build/agent-service.js"
   },
   "files": [
     "build"
